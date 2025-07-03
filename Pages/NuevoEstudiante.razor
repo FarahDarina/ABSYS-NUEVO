@@ -1,0 +1,165 @@
+﻿@page "/nuevo-estudiante"
+@using ABSYS.Models
+@using ABSYS.Data
+@using Microsoft.AspNetCore.Components.Forms
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Nuevo Estudiante</PageTitle>
+
+<h3>Registro de Estudiante</h3>
+
+<EditForm Model="@nuevoEstudiante" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Nombres *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.Nombres" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Apellidos *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.Apellidos" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Fecha de Nacimiento *</label>
+        <input type="date" class="form-control" @bind="nuevoEstudiante.FechaNacimiento" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Dirección *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.Direccion" />
+    </div>
+
+    <!-- Sexo -->
+    <div class="mb-3">
+        <label class="form-label">Sexo *</label>
+        <InputRadioGroup @bind-Value="nuevoEstudiante.Sexo" class="form-check">
+            <InputRadio Value="@masculino" /> Masculino
+            <InputRadio Value="@femenino" /> Femenino
+        </InputRadioGroup>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">CURP *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.CURP" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Teléfono *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.Telefono" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Email *</label>
+        <InputText class="form-control" @bind-Value="nuevoEstudiante.Email" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Carrera a cursar *</label>
+        <InputSelect class="form-select" @bind-Value="nuevoEstudiante.Carrera">
+            @foreach (var carrera in carrerasDisponibles)
+            {
+                <option value="@carrera">@carrera</option>
+            }
+        </InputSelect>
+    </div>
+
+    <div class="form-check mb-3">
+        <InputCheckbox class="form-check-input" @bind-Value="nuevoEstudiante.EsBecado" />
+        <label class="form-check-label">¿Es Becado?</label>
+    </div>
+
+    <!-- Modalidad -->
+    <div class="mb-3">
+        <label class="form-label">Modalidad *</label>
+        <InputRadioGroup @bind-Value="nuevoEstudiante.Modalidad" class="form-check">
+            <InputRadio Value="@("Presencial")" /> Presencial
+            <InputRadio Value="@("Online")" /> Online
+            <InputRadio Value="@("Ambos")" /> Ambos
+        </InputRadioGroup>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Descripción Personal</label>
+        <InputTextArea class="form-control" @bind-Value="nuevoEstudiante.DescripcionPersonal" />
+    </div>
+
+    <div class="form-check mb-3">
+        <InputCheckbox class="form-check-input" @bind-Value="nuevoEstudiante.TieneMascotas" />
+        <label class="form-check-label">¿Tiene Mascotas?</label>
+    </div>
+
+    @if (nuevoEstudiante.TieneMascotas)
+    {
+        <div class="mb-3">
+            <label class="form-label">¿Cuáles?</label>
+            <InputText class="form-control" @bind-Value="nuevoEstudiante.TipoMascotas" />
+        </div>
+    }
+
+    <!-- HorarioComida -->
+    <div class="mb-3">
+        <label class="form-label">Horario de comida</label>
+        <input type="time"
+               class="form-control"
+               value="horarioComidaString"
+               @onchange="OnHorarioComidaChanged" />
+    </div>
+
+    <button type="submit" class="btn btn-success">Guardar</button>
+</EditForm>
+
+@code {
+    private string masculino = "Masculino";
+    private string femenino = "Femenino";
+    private Estudiante nuevoEstudiante = new()
+    {
+        FechaNacimiento = DateTime.Today.AddYears(-18) // 18 años por defecto
+    };
+
+    private List<string> carrerasDisponibles = new()
+    {
+        "Ingeniería en Sistemas", "Biología", "Derecho", "Comercio",
+        "Educación", "Psicología", "Matemáticas", "Química",
+        "Economía", "Administración", "Mercadotecnia"
+    };
+
+    private async Task Guardar()
+    {
+        if (nuevoEstudiante.FechaNacimiento.Year < 1900)
+        {
+            nuevoEstudiante.FechaNacimiento = DateTime.Today.AddYears(-18);
+        }
+
+        DbContext.Estudiantes.Add(nuevoEstudiante);
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/lista-estudiantes");
+    }
+
+    private string? horarioComidaString;
+
+    private void OnHorarioComidaChanged(ChangeEventArgs e)
+    {
+        horarioComidaString = e.Value?.ToString();
+
+        if (TimeOnly.TryParse(horarioComidaString, out var hora))
+        {
+            nuevoEstudiante.HorarioComida = hora;
+        }
+        else
+        {
+            nuevoEstudiante.HorarioComida = null;
+        }
+    }
+    protected override void OnInitialized()
+    {
+        horarioComidaString = nuevoEstudiante.HorarioComida?.ToString("HH\\:mm");
+    }
+}
+
+
+
+

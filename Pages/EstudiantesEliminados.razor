@@ -1,0 +1,227 @@
+﻿@page "/estudiantes-eliminados"
+@using ABSYS.Models
+@using ABSYS.Data
+@using ABSYS.Shared
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Estudiantes Eliminados</PageTitle>
+
+<h3 class="text-danger fw-bold mb-4">
+    <i class="bi bi-trash-fill me-2"></i> Estudiantes Eliminados
+</h3>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" placeholder="Buscar por nombre, CURP o carrera" @bind="busqueda" @oninput="OnBusquedaChanged" />
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+        else if (estudiantesFiltrados.Count == 0)
+        {
+            <div class="alert alert-info">No se encontraron estudiantes eliminados.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-danger">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>CURP</th>
+                            <th>Carrera</th>
+                            <th>Email</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var estudiante in estudiantesPagina)
+                        {
+                            <tr>
+                                <td>@($"{estudiante.Nombres} {estudiante.Apellidos}")</td>
+                                <td>@estudiante.CURP</td>
+                                <td>@estudiante.Carrera</td>
+                                <td>@estudiante.Email</td>
+                                <td>
+                                    <button class="btn btn-warning btn-sm me-1" @onclick="() => ConfirmarRestauracion(estudiante)">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Restaurar
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => ConfirmarEliminacion(estudiante)">
+                                        <i class="bi bi-x-circle"></i> Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item @(paginaActual == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => CambiarPagina(paginaActual - 1)">Anterior</button>
+                        </li>
+
+                        @for (int i = 1; i <= totalPaginas; i++)
+                        {
+                            <li class="page-item @(paginaActual == i ? "active" : "")">
+                                <button class="page-link" @onclick="() => CambiarPagina(i)">@i</button>
+                            </li>
+                        }
+
+                        <li class="page-item @(paginaActual == totalPaginas ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => CambiarPagina(paginaActual + 1)">Siguiente</button>
+                        </li>
+                    </ul>
+                </nav>
+
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modales de confirmación -->
+<ConfirmDialog Visible="@mostrarConfirmacionEliminar"
+               Nombre="@estudianteSeleccionado?.Nombres"
+               Titulo="Eliminar Definitivamente"
+               Mensaje="@($"Esta acción no se puede deshacer. ¿Eliminar al estudiante {estudianteSeleccionado?.Nombres}?")"
+               TextoBoton="Eliminar"
+               BotonColor="btn btn-danger"
+               BotonIcono="bi bi-trash"
+               HeaderColor="bg-danger"
+               Icono="bi bi-exclamation-triangle-fill"
+               OnConfirmar="EliminarConfirmado"
+               OnCancelar="CancelarConfirmacion" />
+
+<ConfirmDialog Visible="@mostrarConfirmacionRestaurar"
+               Nombre="@estudianteSeleccionado?.Nombres"
+               Titulo="Restaurar Estudiante"
+               Mensaje="@($"¿Deseas restaurar al estudiante {estudianteSeleccionado?.Nombres}?")"
+               TextoBoton="Restaurar"
+               BotonColor="btn btn-warning"
+               BotonIcono="bi bi-arrow-counterclockwise"
+               HeaderColor="bg-warning"
+               Icono="bi bi-question-circle"
+               OnConfirmar="RestaurarConfirmado"
+               OnCancelar="CancelarConfirmacion" />
+
+@code {
+    private string busqueda = string.Empty;
+    private string? error;
+    private List<Estudiante> estudiantes = new();
+    private List<Estudiante> estudiantesFiltrados = new();
+    private List<Estudiante> estudiantesEliminados = new();
+
+    private Estudiante? estudianteSeleccionado;
+    private bool mostrarConfirmacionEliminar;
+    private bool mostrarConfirmacionRestaurar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            estudiantes = await DbContext.Estudiantes
+                .Where(e => e.Eliminado)
+                .ToListAsync();
+
+            Filtrar();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private void Filtrar()
+    {
+        estudiantesFiltrados = estudiantes
+            .Where(e => string.IsNullOrWhiteSpace(busqueda)
+                || e.Nombres.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
+                || e.Apellidos.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
+                || e.CURP.Contains(busqueda, StringComparison.OrdinalIgnoreCase)
+                || e.Carrera.Contains(busqueda, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void ConfirmarEliminacion(Estudiante est)
+    {
+        estudianteSeleccionado = est;
+        mostrarConfirmacionEliminar = true;
+    }
+
+    private async Task EliminarConfirmado()
+    {
+        if (estudianteSeleccionado is not null)
+        {
+            DbContext.Estudiantes.Remove(estudianteSeleccionado);
+            await DbContext.SaveChangesAsync();
+
+            estudiantes.Remove(estudianteSeleccionado);
+            Filtrar();
+        }
+
+        mostrarConfirmacionEliminar = false;
+        estudianteSeleccionado = null;
+    }
+
+    private void ConfirmarRestauracion(Estudiante est)
+    {
+        estudianteSeleccionado = est;
+        mostrarConfirmacionRestaurar = true;
+    }
+
+    private async Task RestaurarConfirmado()
+    {
+        if (estudianteSeleccionado is not null)
+        {
+            estudianteSeleccionado.Eliminado = false;
+            DbContext.Estudiantes.Update(estudianteSeleccionado);
+            await DbContext.SaveChangesAsync();
+
+            estudiantes.Remove(estudianteSeleccionado);
+            Filtrar();
+        }
+
+        mostrarConfirmacionRestaurar = false;
+        estudianteSeleccionado = null;
+    }
+
+    private void CancelarConfirmacion()
+    {
+        mostrarConfirmacionEliminar = false;
+        mostrarConfirmacionRestaurar = false;
+        estudianteSeleccionado = null;
+    }
+
+    private void OnBusquedaChanged(ChangeEventArgs e)
+    {
+        busqueda = e.Value?.ToString() ?? string.Empty;
+        paginaActual = 1;
+        Filtrar();
+    }
+
+    private int paginaActual = 1;
+    private int registrosPorPagina = 20;
+
+    private IEnumerable<Estudiante> estudiantesPagina =>
+        estudiantesFiltrados
+            .Skip((paginaActual - 1) * registrosPorPagina)
+            .Take(registrosPorPagina);
+
+    private int totalPaginas =>
+        (int)Math.Ceiling((double)estudiantesFiltrados.Count / registrosPorPagina);
+
+    private void CambiarPagina(int nuevaPagina)
+    {
+        if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas)
+        {
+            paginaActual = nuevaPagina;
+        }
+    }
+}
+

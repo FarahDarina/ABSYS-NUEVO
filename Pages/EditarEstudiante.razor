@@ -1,0 +1,215 @@
+﻿@page "/editar-estudiante/{Id:int}"
+@using ABSYS.Models
+@using ABSYS.Shared
+@using Microsoft.EntityFrameworkCore
+@inject NavigationManager Navigation
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Editar Estudiante</PageTitle>
+
+<h3 class="text-primary fw-bold mb-4">
+    <i class="bi bi-pencil-square me-2"></i> Editar Estudiante
+</h3>
+
+@if (estudiante == null)
+{
+    <div class="alert alert-warning">Cargando datos del estudiante...</div>
+}
+else
+{
+    <EditForm Model="estudiante" OnValidSubmit="ConfirmarEdicion">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="bg-white p-4 rounded shadow-sm">
+
+            <!-- 🧝 Datos Personales -->
+            <div class="mb-3">
+                <label class="form-label">Nombres *</label>
+                <InputText class="form-control" @bind-Value="estudiante.Nombres" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Apellidos *</label>
+                <InputText class="form-control" @bind-Value="estudiante.Apellidos" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Fecha de Nacimiento *</label>
+                <input type="date" class="form-control" @bind="estudiante.FechaNacimiento" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Dirección *</label>
+                <InputText class="form-control" @bind-Value="estudiante.Direccion" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Sexo *</label>
+                <InputRadioGroup @bind-Value="estudiante.Sexo" class="form-check">
+                    <InputRadio Value="@masculino" /> Masculino
+                    <InputRadio Value="@femenino" /> Femenino
+                </InputRadioGroup>
+            </div>
+
+            <!-- 📞 Contacto -->
+            <div class="mb-3">
+                <label class="form-label">CURP *</label>
+                <InputText class="form-control" @bind-Value="estudiante.CURP" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Teléfono *</label>
+                <InputText class="form-control" @bind-Value="estudiante.Telefono" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email *</label>
+                <InputText class="form-control" @bind-Value="estudiante.Email" />
+            </div>
+
+            <!-- 🎓 Detalles Académicos -->
+            <div class="mb-3">
+                <label class="form-label">Carrera a cursar *</label>
+                <InputSelect class="form-select" @bind-Value="estudiante.Carrera">
+                    @foreach (var carrera in carrerasDisponibles)
+                    {
+                        <option value="@carrera">@carrera</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="form-check mb-3">
+                <InputCheckbox class="form-check-input" @bind-Value="estudiante.EsBecado" />
+                <label class="form-check-label">¿Es Becado?</label>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Modalidad *</label>
+                <InputRadioGroup @bind-Value="estudiante.Modalidad" class="form-check">
+                    <InputRadio Value="@("Presencial")" /> Presencial
+                    <InputRadio Value="@("Online")" /> Online
+                    <InputRadio Value="@("Ambos")" /> Ambos
+                </InputRadioGroup>
+            </div>
+
+            <!-- 📄 Información Adicional -->
+            <div class="mb-3">
+                <label class="form-label">Descripción Personal</label>
+                <InputTextArea class="form-control" @bind-Value="estudiante.DescripcionPersonal" />
+            </div>
+
+            <div class="form-check mb-3">
+                <InputCheckbox class="form-check-input" @bind-Value="estudiante.TieneMascotas" />
+                <label class="form-check-label">¿Tiene Mascotas?</label>
+            </div>
+
+            @if (estudiante.TieneMascotas)
+            {
+                <div class="mb-3">
+                    <label class="form-label">¿Cuáles?</label>
+                    <InputText class="form-control" @bind-Value="estudiante.TipoMascotas" />
+                </div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Horario de comida</label>
+                <input type="time" class="form-control" value="@horarioComidaString" @onchange="OnHorarioChanged" />
+            </div>
+
+            <!-- Botones -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Guardar Cambios
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="OnCancelar">
+                    <i class="bi bi-arrow-left-circle"></i> Cancelar
+                </button>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<!-- Modal Confirmación -->
+<ConfirmDialog Visible="@mostrarConfirmacion"
+               Nombre="@estudiante?.Nombres"
+               Titulo="Confirmar Edición"
+               Mensaje="@($"¿Estás seguro que deseas guardar los cambios del estudiante {estudiante?.Nombres}?")"
+               TextoBoton="Confirmar"
+               BotonColor="btn btn-success"
+               BotonIcono="bi bi-check-circle"
+               HeaderColor="bg-success"
+               Icono="bi bi-pencil-square"
+               OnConfirmar="GuardarCambios"
+               OnCancelar="CancelarConfirmacion" />
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private string masculino = "Masculino";
+    private string femenino = "Femenino";
+    private Estudiante? estudiante;
+    private bool mostrarConfirmacion = false;
+    private string? horarioComidaString;
+
+    private List<string> carrerasDisponibles = new()
+    {
+        "Ingeniería en Sistemas", "Biología", "Derecho", "Comercio",
+        "Educación", "Psicología", "Matemáticas", "Química",
+        "Economía", "Administración", "Mercadotecnia"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        estudiante = await DbContext.Estudiantes.FirstOrDefaultAsync(e => e.Id == Id && !e.Eliminado);
+
+        if (estudiante != null)
+        {
+            // ✅ Validar y corregir FechaNacimiento si es muy antigua
+            if (estudiante.FechaNacimiento.Year < 1900)
+            {
+                estudiante.FechaNacimiento = DateTime.Today.AddYears(-18);
+            }
+
+            horarioComidaString = estudiante.HorarioComida?.ToString("HH\\:mm");
+        }
+    }
+
+    private void OnHorarioChanged(ChangeEventArgs e)
+    {
+        horarioComidaString = e.Value?.ToString();
+
+        if (TimeOnly.TryParse(horarioComidaString, out var hora))
+            estudiante!.HorarioComida = hora;
+        else
+            estudiante!.HorarioComida = null;
+    }
+
+    private void ConfirmarEdicion()
+    {
+        mostrarConfirmacion = true;
+    }
+
+    private async Task GuardarCambios()
+    {
+        if (TimeOnly.TryParse(horarioComidaString, out var hora))
+            estudiante!.HorarioComida = hora;
+        else
+            estudiante!.HorarioComida = null;
+
+        DbContext.Estudiantes.Update(estudiante!);
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/lista-estudiantes");
+    }
+
+    private void CancelarConfirmacion()
+    {
+        mostrarConfirmacion = false;
+    }
+
+    private void OnCancelar()
+    {
+        Navigation.NavigateTo("/lista-estudiantes");
+    }
+}
+
